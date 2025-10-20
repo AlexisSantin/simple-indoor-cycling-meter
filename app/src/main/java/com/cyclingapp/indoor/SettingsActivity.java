@@ -16,6 +16,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -31,6 +32,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 public class SettingsActivity extends AppCompatActivity {
@@ -109,11 +112,10 @@ public class SettingsActivity extends AppCompatActivity {
             return;
         }
         
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) 
-                != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, 
-                new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 
-                REQUEST_LOCATION_PERMISSION);
+        // Vérifier et demander les permissions selon la version Android
+        if (!hasRequiredPermissions()) {
+            requestRequiredPermissions();
+            return;
         }
         
         if (!bluetoothAdapter.isEnabled()) {
@@ -123,6 +125,44 @@ public class SettingsActivity extends AppCompatActivity {
         }
         
         bluetoothLeScanner = bluetoothAdapter.getBluetoothLeScanner();
+    }
+    
+    private boolean hasRequiredPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { // Android 12+
+            return ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) 
+                    == PackageManager.PERMISSION_GRANTED &&
+                   ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) 
+                    == PackageManager.PERMISSION_GRANTED;
+        } else { // Android 7-11
+            return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) 
+                    == PackageManager.PERMISSION_GRANTED;
+        }
+    }
+    
+    private void requestRequiredPermissions() {
+        List<String> permissions = new ArrayList<>();
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { // Android 12+
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) 
+                    != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.BLUETOOTH_SCAN);
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) 
+                    != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.BLUETOOTH_CONNECT);
+            }
+        } else { // Android 7-11
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) 
+                    != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.ACCESS_FINE_LOCATION);
+            }
+        }
+        
+        if (!permissions.isEmpty()) {
+            ActivityCompat.requestPermissions(this, 
+                permissions.toArray(new String[0]), 
+                REQUEST_LOCATION_PERMISSION);
+        }
     }
     
     private void setupClickListeners() {
@@ -177,12 +217,9 @@ public class SettingsActivity extends AppCompatActivity {
     }
     
     private void startScan() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) 
-                != PackageManager.PERMISSION_GRANTED) {
-            showToast("Permission de localisation requise");
-            ActivityCompat.requestPermissions(this, 
-                new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 
-                REQUEST_LOCATION_PERMISSION);
+        if (!hasRequiredPermissions()) {
+            showToast("Permissions Bluetooth requises");
+            requestRequiredPermissions();
             return;
         }
         

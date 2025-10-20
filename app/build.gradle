@@ -8,10 +8,10 @@ android {
 
     defaultConfig {
         applicationId "com.cyclingapp.indoor"
-        minSdk 28
-        targetSdk 28
-        versionCode 1
-        versionName "1.0"
+        minSdk 24  // Android 7.0 (Nougat)
+        targetSdk 33
+        versionCode 2
+        versionName "1.1"
     }
 
     buildTypes {
