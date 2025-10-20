@@ -219,9 +219,13 @@ public class MainActivity extends AppCompatActivity implements BluetoothConnecti
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
+                // Limiter les valeurs pour l'affichage
+                int displayCadence = Math.min(currentCadence, 200); // Max 200 RPM
+                double displaySpeed = Math.max(0, currentSpeed); // Jamais négatif
+                
                 powerValue.setText(String.format("%d W", currentPower));
-                cadenceValue.setText(String.format("%d RPM", currentCadence));
-                speedValue.setText(String.format("%.1f km/h", currentSpeed));
+                cadenceValue.setText(String.format("%d RPM", displayCadence));
+                speedValue.setText(String.format("%.1f km/h", displaySpeed));
                 distanceValue.setText(String.format("%.2f km", totalDistance));
                 caloriesValue.setText(String.format("%.0f kcal", totalCalories));
                 avgSpeedValue.setText(String.format("%.1f km/h", averageSpeed));

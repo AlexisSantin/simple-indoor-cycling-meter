@@ -78,6 +78,7 @@ public class BluetoothConnectionManager {
                 // Réinitialiser les compteurs de cadence
                 lastCrankRevolutions = -1;
                 lastCrankTime = -1;
+                lastCalculatedCadence = 0;
                 
                 notifyConnectionStateChanged(false);
                 Log.d(TAG, "Déconnexion");
@@ -138,42 +139,66 @@ public class BluetoothConnectionManager {
         
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+            Log.d(TAG, "onCharacteristicChanged appelé!");
+            
             if (CYCLING_POWER_MEASUREMENT_UUID.equals(characteristic.getUuid())) {
                 byte[] data = characteristic.getValue();
+                Log.d(TAG, "Data length: " + (data != null ? data.length : 0));
+                
                 if (data != null && data.length >= 4) {
+                    // Log des données brutes
+                    StringBuilder hex = new StringBuilder();
+                    for (byte b : data) {
+                        hex.append(String.format("%02X ", b));
+                    }
+                    Log.d(TAG, "Data brute: " + hex.toString());
+                    
                     // Parser les données selon le format Cycling Power Measurement
                     int flags = (data[0] & 0xFF) | ((data[1] & 0xFF) << 8);
+                    Log.d(TAG, "Flags: 0x" + Integer.toHexString(flags));
                     
                     // Puissance instantanée (bytes 2-3)
                     int power = (data[2] & 0xFF) | ((data[3] & 0xFF) << 8);
                     if (power > 32767) power -= 65536;
                     power = Math.max(0, power);
+                    Log.d(TAG, "Power parsé: " + power + " W");
                     
                     // Cadence depuis Crank Revolution Data (si présent)
                     int cadence = 0;
                     int offset = 4;
                     
                     // Bit 5 du flags indique la présence de Crank Revolution Data
-                    if ((flags & 0x20) != 0 && data.length >= offset + 4) {
+                    boolean hasCrankData = (flags & 0x20) != 0;
+                    Log.d(TAG, "Has crank data: " + hasCrankData + ", data length: " + data.length + ", need: " + (offset + 4));
+                    
+                    if (hasCrankData && data.length >= offset + 4) {
                         int currentRevolutions = (data[offset] & 0xFF) | ((data[offset + 1] & 0xFF) << 8);
                         int currentTime = (data[offset + 2] & 0xFF) | ((data[offset + 3] & 0xFF) << 8);
+                        Log.d(TAG, String.format("Revolutions: %d, Time: %d", currentRevolutions, currentTime));
                         
                         // Calculer la cadence (RPM) depuis les révolutions
                         cadence = calculateCadence(currentRevolutions, currentTime);
                     }
                     
-                    Log.d(TAG, String.format("Données reçues - Power: %d W, Cadence: %d RPM", power, cadence));
+                    Log.d(TAG, String.format("=== Données finales - Power: %d W, Cadence: %d RPM ===", power, cadence));
                     notifyDataReceived(power, cadence);
+                } else {
+                    Log.w(TAG, "Données trop courtes ou nulles");
                 }
+            } else {
+                Log.w(TAG, "UUID incorrect: " + characteristic.getUuid());
             }
         }
     };
     
+    private int lastCalculatedCadence = 0;
+    
     private int calculateCadence(int currentRevolutions, int currentTime) {
+        // Première mesure : initialiser sans calculer
         if (lastCrankRevolutions == -1 || lastCrankTime == -1) {
             lastCrankRevolutions = currentRevolutions;
             lastCrankTime = currentTime;
-            return 0;
+            return lastCalculatedCadence; // Retourner la dernière cadence connue
         }
         
         int revDelta = currentRevolutions - lastCrankRevolutions;
@@ -187,18 +212,31 @@ public class BluetoothConnectionManager {
             timeDelta += 65536;
         }
         
+        // Si pas de changement, retourner la dernière cadence
+        if (revDelta == 0 || timeDelta == 0) {
+            return lastCalculatedCadence;
+        }
+        
+        // Calculer RPM seulement si les données sont cohérentes
+        // timeDelta est en 1/1024 secondes
+        double timeInSeconds = timeDelta / 1024.0;
+        double rpm = (revDelta / timeInSeconds) * 60.0;
+        
+        // Filtrer les valeurs aberrantes (> 200 RPM impossible, < 20 RPM = arrêt)
+        if (rpm > 0 && rpm <= 200) {
+            lastCalculatedCadence = (int) Math.round(rpm);
+        } else if (rpm < 20) {
+            lastCalculatedCadence = 0; // Arrêt détecté
+        }
+        // Sinon, on garde la dernière valeur valide
+        
         lastCrankRevolutions = currentRevolutions;
         lastCrankTime = currentTime;
         
-        // Calculer RPM
-        // timeDelta est en 1/1024 secondes
-        if (timeDelta > 0 && revDelta > 0) {
-            double timeInSeconds = timeDelta / 1024.0;
-            double rpm = (revDelta / timeInSeconds) * 60.0;
-            return (int) Math.round(rpm);
-        }
+        Log.d(TAG, String.format("Cadence calc - revDelta: %d, timeDelta: %d, RPM: %.1f, Final: %d", 
+            revDelta, timeDelta, rpm, lastCalculatedCadence));
         
-        return 0;
+        return lastCalculatedCadence;
     }
     
     private void notifyDataReceived(int power, int cadence) {
