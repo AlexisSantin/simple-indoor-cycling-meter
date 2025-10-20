@@ -14,7 +14,7 @@ Application Android simple et efficace qui se connecte à votre capteur Stages B
 ✅ **Connexion Bluetooth LE** : Se connecte automatiquement aux capteurs Stages  
 ✅ **Données en temps réel** : Affichage instantané des métriques de cyclisme  
 ✅ **Interface intuitive** : Cards avec métriques claires et colorées  
-✅ **Compatible Android 9** : Optimisé pour API 28+  
+✅ **Compatible Android 7+** : Fonctionne sur Android 7.0 (API 24) et supérieur  
 ✅ **Calculs automatiques** : Vitesse et distance calculées à partir puissance/cadence  
 ✅ **Enregistrement de sessions** : Sauvegarde automatique de vos entraînements  
 ✅ **Historique des sessions** : Consultez vos performances passées  
@@ -24,7 +24,7 @@ Application Android simple et efficace qui se connecte à votre capteur Stages B
 
 - **Android Studio** ou **SDK Android** installé
 - **Java 8+** 
-- **Tablette/téléphone Android 9+** avec Bluetooth LE
+- **Tablette/téléphone Android 7+** avec Bluetooth LE
 - **Capteur Stages** avec service Cycling Power (UUID: 0x1818)
 
 ## Installation et compilation
@@ -57,7 +57,7 @@ export ANDROID_HOME=~/Android/Sdk
 export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
 
 # Installer les composants nécessaires
-sdkmanager "platform-tools" "platforms;android-28" "build-tools;28.0.3"
+sdkmanager "platform-tools" "platforms;android-24" "build-tools;33.0.0"
 ```
 
 ### 3. Compilation de l'APK
@@ -122,7 +122,27 @@ adb install app/build/outputs/apk/release/app-release-unsigned.apk
 
 L'application demande automatiquement :
 - **Bluetooth** : Pour se connecter au capteur
-- **Localisation** : Requis pour le scan Bluetooth LE sur Android
+- **Localisation** (Android 7-11) : Requis pour le scan Bluetooth LE
+- **BLUETOOTH_SCAN & BLUETOOTH_CONNECT** (Android 12+) : Nouvelles permissions Bluetooth
+
+**Note** : Les permissions s'adaptent automatiquement selon votre version Android.
+
+## Compatibilité
+
+### Versions Android supportées
+- ✅ **Android 7.0 (Nougat)** - API 24
+- ✅ **Android 7.1** - API 25
+- ✅ **Android 8.0/8.1 (Oreo)** - API 26-27
+- ✅ **Android 9 (Pie)** - API 28
+- ✅ **Android 10** - API 29
+- ✅ **Android 11** - API 30
+- ✅ **Android 12** - API 31
+- ✅ **Android 13+** - API 33+
+
+### Gestion des permissions
+L'application adapte automatiquement les permissions demandées selon votre version Android :
+- **Android 7-11** : Utilise `ACCESS_FINE_LOCATION` pour le scan Bluetooth LE
+- **Android 12+** : Utilise les nouvelles permissions `BLUETOOTH_SCAN` et `BLUETOOTH_CONNECT`
 
 ## Structure du projet
 
